@@ -1,78 +1,118 @@
-// api/gh-hours.js
-// Env vars: GOOGLE_PLACES_KEY, PLACE_ID (optional), SHOPIFY_APP_SECRET (for HMAC), CACHE_SECONDS=900
+// Top of file
+const ALLOW_ORIGINS = [
+  'https://greyhousecoffee.com',
+  'https://www.greyhousecoffee.com',
+  'https://greyhousecoffee.myshopify.com' // your myshopify domain
+];
 
-function safeEquals(a, b) {
-  if (!a || !b || a.length !== b.length) return false;
-  let res = 0;
-  for (let i = 0; i < a.length; i++) res |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return res === 0;
+function setCors(req, res) {
+  const origin = req.headers.origin;
+  if (origin && ALLOW_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin'); // important for caching
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Test-Token');
+  }
 }
 
-function buildHmacBaseString(url) {
-  // App Proxy verifies HMAC over the query params (excluding hmac/signature), sorted ascending and form-encoded.
-  const u = new URL(url, 'http://x');
-  const params = [...u.searchParams.entries()]
-    .filter(([k]) => k !== 'hmac' && k !== 'signature')
-    .sort(([a],[b]) => a.localeCompare(b))
-    .map(([k,v]) => `${k}=${v}`)
-    .join('&');
-  return params;
+function normalizeDescriptions(data) {
+  // Prefer currentOpeningHours, then regularOpeningHours
+  const desc =
+    data?.currentOpeningHours?.weekdayDescriptions ||
+    data?.regularOpeningHours?.weekdayDescriptions;
+
+  if (!Array.isArray(desc) || desc.length < 7) return null;
+
+  // desc entries look like: "Monday: 7 AM–9 PM"
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const map = {};
+  for (const line of desc) {
+    const [day, restRaw = ''] = line.split(': ');
+    const tidy = restRaw
+      .replace(/\u202F/g,'')
+      .replace(/\s*AM/g,'AM')
+      .replace(/\s*PM/g,'PM')
+      .replace(/\s/g,'')
+      .replace(/:00/g,'');
+    map[day] = tidy || 'Closed';
+  }
+  return days.map(d => ({ day: d, hours: map[d] ?? 'Closed' }));
 }
 
+function labelForTodayOrDaily(week) {
+  const allSame = week.every(x => x.hours === week[0].hours);
+  if (allSame) return `${week[0].hours} Daily`;
+  const todayIdx = new Date().getDay(); // 0=Sun
+  return week[todayIdx].hours || 'Hours unavailable';
+}
+
+// Handler
 export default async function handler(req, res) {
-  // --- 1) Verify Shopify App Proxy signature (recommended) ---
-  try {
-    const secret = process.env.SHOPIFY_APP_SECRET;
-    if (secret) {
-      const crypto = await import('node:crypto');
-      const hmacParam = req.query.hmac || req.query.signature || '';
-      const base = buildHmacBaseString(req.url);
-      const calc = crypto.createHmac('sha256', secret).update(base, 'utf8').digest('hex');
-      if (!safeEquals(calc, String(hmacParam))) {
-        return res.status(401).setHeader('content-type', 'text/plain').send('Unauthorized');
-      }
-    }
-  } catch {
-    // If verification code throws (bad env, etc.), fail closed:
-    return res.status(401).setHeader('content-type', 'text/plain').send('Unauthorized');
+  setCors(req, res);
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end(); // preflight ok
   }
 
-  // --- 2) Gather inputs ---
   const placeId = req.query.place_id || process.env.PLACE_ID;
-  if (!placeId) return res.status(400).send('Missing place_id');
+  const key = process.env.GOOGLE_PLACES_KEY;
+  const debug = req.query.debug === '1';
 
-  // --- 3) Call Google Places (v1) for weekdayDescriptions only ---
-  const endpoint = `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`;
-  const headers = {
-    'X-Goog-Api-Key': process.env.GOOGLE_PLACES_KEY,
-    'X-Goog-FieldMask': 'regularOpeningHours.weekdayDescriptions'
-  };
-
-  // Optional: small edge cache
-  const cacheSeconds = Number(process.env.CACHE_SECONDS || 900);
+  if (!key) {
+    return res
+      .status(500)
+      .setHeader('content-type', 'text/plain')
+      .send(debug ? 'Missing GOOGLE_PLACES_KEY' : 'Hours unavailable (fallback)');
+  }
+  if (!placeId) {
+    return res
+      .status(400)
+      .setHeader('content-type', 'text/plain')
+      .send(debug ? 'Missing place_id' : 'Hours unavailable (fallback)');
+  }
 
   try {
-    const r = await fetch(endpoint, { headers, cache: 'no-store' });
-    if (!r.ok) throw new Error(`Places ${r.status}`);
-    const data = await r.json();
-    const desc = data?.regularOpeningHours?.weekdayDescriptions;
+    const endpoint = `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`;
+    const headers = {
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': 'id,displayName,currentOpeningHours.weekdayDescriptions,regularOpeningHours.weekdayDescriptions'
+    };
 
-    // Build the label: "7AM–6PM Daily" if all 7 days match, else today's hours
-    let label = 'Hours unavailable';
-    if (Array.isArray(desc) && desc.length >= 7) {
-      const ranges = desc.map(d => (d.split(': ')[1] || '').trim());
-      const tidy = s => s.replace(/\s*AM/g,'AM').replace(/\s*PM/g,'PM').replace(/\s/g,'').replace(/:00/g,'');
-      const clean = ranges.map(tidy);
-      const allSame = clean.every(r => r === clean[0]);
-      label = allSame ? `${clean[0]} Daily` : clean[new Date().getDay()] || 'Hours unavailable';
+    const r = await fetch(endpoint, { headers, cache: 'no-store' });
+    const bodyText = await r.text(); // read body either way
+    if (!r.ok) {
+      if (debug) {
+        return res
+          .status(200)
+          .setHeader('content-type', 'text/plain')
+          .send(`ERROR ${r.status}: ${bodyText.slice(0, 400)}`);
+      }
+      return res.status(200).send('Hours unavailable (fallback)');
     }
 
-    res
+    const data = JSON.parse(bodyText);
+    const week = normalizeDescriptions(data);
+
+    // Weekly JSON mode
+    if (req.query.format === 'week') {
+      return res
+        .status(200)
+        .setHeader('cache-control', `s-maxage=${process.env.CACHE_SECONDS || 900}, stale-while-revalidate=3600`)
+        .json({ week: week || [] });
+    }
+
+    // Default: single-line text (Daily or today's hours)
+    const label = week && week.length === 7 ? labelForTodayOrDaily(week) : 'Hours unavailable';
+    return res
       .status(200)
-      .setHeader('content-type', 'text/plain; charset=UTF-8')
-      .setHeader('cache-control', `s-maxage=${cacheSeconds}, stale-while-revalidate=3600`)
+      .setHeader('content-type','text/plain; charset=UTF-8')
+      .setHeader('cache-control', `s-maxage=${process.env.CACHE_SECONDS || 900}, stale-while-revalidate=3600`)
       .send(label);
-  } catch {
-    res.status(200).setHeader('content-type', 'text/plain').send('7AM–6PM Daily'); // safe fallback
+
+  } catch (e) {
+    const msg = e?.message || String(e);
+    return res
+      .status(200)
+      .setHeader('content-type','text/plain')
+      .send(debug ? `EXCEPTION: ${msg}` : 'Hours unavailable (fallback)');
   }
 }
