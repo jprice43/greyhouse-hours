@@ -23,16 +23,16 @@ export default async function handler(req, res) {
     return res.status(204).end(); // preflight ok
   }
   
-  const placeId = req.query.place_id || process.env.PLACE_ID;
-  const key = process.env.GOOGLE_PLACES_KEY_LOBBY;
+  const placeId = req.query.place_id_lobby || process.env.PLACE_ID_LOBBY;
+  const key = process.env.GOOGLE_PLACES_KEY;
 
   const debug = req.query.debug === '1';
 
   if (!key) {
-    return res.status(500).send(debug ? 'Missing GOOGLE_PLACES_KEY_LOBBY' : 'Hours unavailable (fallback)');
+    return res.status(500).send(debug ? 'Missing GOOGLE_PLACES_KEY' : 'Hours unavailable (fallback)');
   }
   if (!placeId) {
-    return res.status(400).send(debug ? 'Missing place_id' : 'Hours unavailable (fallback)');
+    return res.status(400).send(debug ? 'Missing place_id_camp' : 'Hours unavailable (fallback)');
   }
 
   try {
