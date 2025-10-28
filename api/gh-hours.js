@@ -41,7 +41,7 @@ function normalizeDescriptions(data) {
 
 function labelForTodayOrDaily(week) {
   const allSame = week.every(x => x.hours === week[0].hours);
-  if (allSame) return `${week[0].hours} Daily`;
+ // if (allSame) return `${week[0].hours} Daily`;
   const todayIdx = new Date().getDay(); // 0=Sun
   return week[todayIdx].hours || 'Hours unavailable';
 }
