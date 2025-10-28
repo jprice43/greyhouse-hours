@@ -3,7 +3,7 @@
 const ALLOW_ORIGINS = [
   'https://greyhousecoffee.com',
   'https://www.greyhousecoffee.com',
-  'https://YOUR-STORE-NAME.myshopify.com' // replace with your myshopify domain
+  'https://greyhousecoffee.myshopify.com' // replace with your myshopify domain
 ];
 
 function setCors(req, res) {
