@@ -24,7 +24,7 @@ function normalizeDescriptions(data) {
   if (!Array.isArray(desc) || desc.length < 7) return null;
 
   // desc entries look like: "Monday: 7 AM–9 PM"
-  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+ const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const map = {};
   for (const line of desc) {
     const [day, restRaw = ''] = line.split(': ');
