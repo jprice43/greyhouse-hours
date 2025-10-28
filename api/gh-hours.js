@@ -40,10 +40,15 @@ function normalizeDescriptions(data) {
 }
 
 function labelForTodayOrDaily(week) {
-  const allSame = week.every(x => x.hours === week[0].hours);
- // if (allSame) return `${week[0].hours} Daily`;
+  // always return today's hours (even if all same)
   const todayIdx = new Date().getDay(); // 0=Sun
   return week[todayIdx].hours || 'Hours unavailable';
+}
+
+// NEW: turn the 7-day array into newline-separated text (uses abbreviations except Sunday)
+function weekToText(week, useAbbr = true) {
+  const abbr = { Sunday:'Sunday', Monday:'Mon', Tuesday:'Tues', Wednesday:'Wed', Thursday:'Thurs', Friday:'Fri', Saturday:'Sat' };
+  return week.map(row => `${useAbbr ? (abbr[row.day] || row.day) : row.day}: ${row.hours}`).join('\n');
 }
 
 // Handler
@@ -54,7 +59,7 @@ export default async function handler(req, res) {
   }
 
   const placeId = req.query.place_id || process.env.PLACE_ID;
-  const key = process.env.GOOGLE_PLACES_KEY;
+  const key = process.env.Google_PLACES_KEY || process.env.GOOGLE_PLACES_KEY; // tolerate casing mistake
   const debug = req.query.debug === '1';
 
   if (!key) {
@@ -92,15 +97,26 @@ export default async function handler(req, res) {
     const data = JSON.parse(bodyText);
     const week = normalizeDescriptions(data);
 
-    // Weekly JSON mode
+    // Weekly JSON mode (always 7 items when available)
     if (req.query.format === 'week') {
       return res
         .status(200)
+        .setHeader('content-type', 'application/json')
         .setHeader('cache-control', `s-maxage=${process.env.CACHE_SECONDS || 900}, stale-while-revalidate=3600`)
         .json({ week: week || [] });
     }
 
-    // Default: single-line text (Daily or today's hours)
+    // NEW: Weekly plain text mode (newline-separated, always 7 lines)
+    if (req.query.format === 'week_text') {
+      const text = week ? weekToText(week, /*useAbbr*/ true) : 'Hours unavailable';
+      return res
+        .status(200)
+        .setHeader('content-type','text/plain; charset=UTF-8')
+        .setHeader('cache-control', `s-maxage=${process.env.CACHE_SECONDS || 900}, stale-while-revalidate=3600`)
+        .send(text);
+    }
+
+    // Default: single-line (today's hours)
     const label = week && week.length === 7 ? labelForTodayOrDaily(week) : 'Hours unavailable';
     return res
       .status(200)
