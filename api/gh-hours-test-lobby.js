@@ -1,9 +1,6 @@
-// Top of file
-const ALLOW_ORIGINS = [
-  'https://greyhousecoffee.com',
-  'https://www.greyhousecoffee.com',
-  'https://greyhousecoffee.myshopify.com' // your myshopify domain
-];
+// Top of file const 
+
+ALLOW_ORIGINS = [ 'https://greyhousecoffee.com', 'https://www.greyhousecoffee.com', 'https://greyhousecoffee.myshopify.com' // replace with your myshopify domain ];
 
 function setCors(req, res) {
   const origin = req.headers.origin;
