@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     return res.status(204).end(); // preflight ok
   }
   
-  const placeId = req.query.place_id_lobby || process.env.PLACE_ID_LOBBY;
+  const placeId = ChIJoZGitoEdE4gRGITDBYOPzL4;
   const key = process.env.GOOGLE_PLACES_KEY;
 
   const debug = req.query.debug === '1';
