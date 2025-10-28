@@ -1,5 +1,28 @@
-// api/gh-hours-test.js
+
+// Top of file
+const ALLOW_ORIGINS = [
+  'https://greyhousecoffee.com',
+  'https://www.greyhousecoffee.com',
+  'https://YOUR-STORE-NAME.myshopify.com' // replace with your myshopify domain
+];
+
+function setCors(req, res) {
+  const origin = req.headers.origin;
+  if (origin && ALLOW_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin'); // important for caching
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Test-Token');
+  }
+}
+
+// In your handler:
 export default async function handler(req, res) {
+  setCors(req, res);
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end(); // preflight ok
+  }
+  
   const placeId = req.query.place_id || process.env.PLACE_ID;
   const key = process.env.GOOGLE_PLACES_KEY;
 
