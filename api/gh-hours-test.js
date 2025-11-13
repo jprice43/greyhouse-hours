@@ -1,3 +1,11 @@
+// ----- HARD CODED CAMPUS HOUSE HOURS -----
+
+const ALLOW_ORIGINS = [
+  'https://greyhousecoffee.com',
+  'https://www.greyhousecoffee.com',
+  'https://greyhousecoffee.myshopify.com'
+];
+
 function setCors(req, res) {
   const origin = req.headers.origin;
   if (origin && ALLOW_ORIGINS.includes(origin)) {
