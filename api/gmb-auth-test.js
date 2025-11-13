@@ -1,6 +1,7 @@
 // api/gmb-auth-test.js
 // Tests OAuth with My Business Business Information API
 
+
 async function getAccessToken(debug) {
   const clientId = process.env.CLIENT_ID;
   const clientSecret = process.env.CLIENT_SECRET;
