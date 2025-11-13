@@ -1,10 +1,3 @@
-// Top of file
-const ALLOW_ORIGINS = [
-  'https://greyhousecoffee.com',
-  'https://www.greyhousecoffee.com',
-  'https://greyhousecoffee.myshopify.com' // your myshopify domain
-];
-
 // ----- HARD CODED CAMPUS HOUSE HOURS -----
 
 const ALLOW_ORIGINS = [
@@ -83,4 +76,3 @@ export default async function handler(req, res) {
     .setHeader("content-type", "text/plain; charset=UTF-8")
     .send(labelForToday());
 }
-
