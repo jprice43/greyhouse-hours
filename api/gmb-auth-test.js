@@ -6,11 +6,14 @@ async function getAccessToken(debug) {
   const clientSecret = process.env.CLIENT_SECRET;
   const refreshToken = process.env.REFRESH_TOKEN;
 
-  if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error(
-      'Missing env vars: GMB_CLIENT_ID, GMB_CLIENT_SECRET, or GMB_REFRESH_TOKEN'
-    );
-  }
+if (!clientId || !clientSecret || !refreshToken) {
+  throw new Error(
+    `Missing required env vars:\n` +
+    `GMB_CLIENT_ID: ${clientId ? '✓ present' : '✗ missing'}\n` +
+    `GMB_CLIENT_SECRET: ${clientSecret ? '✓ present' : '✗ missing'}\n` +
+    `GMB_REFRESH_TOKEN: ${refreshToken ? '✓ present' : '✗ missing'}`
+  );
+}
 
   const body = new URLSearchParams({
     client_id: clientId,
