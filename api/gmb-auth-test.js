@@ -2,9 +2,9 @@
 // Tests OAuth with My Business Business Information API
 
 async function getAccessToken(debug) {
-  const clientId = process.env.GMB_CLIENT_ID;
-  const clientSecret = process.env.GMB_CLIENT_SECRET;
-  const refreshToken = process.env.GMB_REFRESH_TOKEN;
+  const clientId = process.env.CLIENT_ID;
+  const clientSecret = process.env.CLIENT_SECRET;
+  const refreshToken = process.env.REFRESH_TOKEN;
 
   if (!clientId || !clientSecret || !refreshToken) {
     throw new Error(
