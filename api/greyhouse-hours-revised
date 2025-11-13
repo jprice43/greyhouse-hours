@@ -1,1 +1,66 @@
+// api/gmb-auth-test.js
+// Tests OAuth with My Business Business Information API
+// Docs: https://developers.google.com/my-business/reference/businessinformation/rest
+
+async function getAccessToken() {
+  const clientId = process.env.GMB_Client_id;
+  const clientSecret = process.env.GMB_Client_Secret;
+  const refreshToken = process.env.GMB_REFRESH_TOKEN;
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error('Missing GMB_CLIENT_ID / GMB_CLIENT_SECRET / GMB_REFRESH_TOKEN');
+  }
+
+  const body = new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    refresh_token: refreshToken,
+    grant_type: 'refresh_token'
+  });
+
+  const resp = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  });
+
+  const data = await resp.json();
+  if (!resp.ok) {
+    console.error('Token error:', data);
+    throw new Error('Failed to get access token');
+  }
+
+  return data.access_token; // valid for ~1 hour
+}
+
+export default async function handler(req, res) {
+  try {
+    const accessToken = await getAccessToken();
+
+    // 1) List accounts to get your accountId
+    // GET https://mybusinessbusinessinformation.googleapis.com/v1/accounts
+    const accountsResp = await fetch(
+      'https://mybusinessbusinessinformation.googleapis.com/v1/accounts',
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/json'
+        }
+      }
+    );
+
+    const accountsData = await accountsResp.json();
+    if (!accountsResp.ok) {
+      console.error('Accounts error:', accountsData);
+      return res.status(500).json({ error: 'Failed to list accounts', detail: accountsData });
+    }
+
+    // For now, just return the accounts JSON so you can see it
+    return res.status(200).json({ accounts: accountsData });
+
+  } catch (err) {
+    console.error('GMB OAuth test error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+}
 
